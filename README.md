@@ -1,15 +1,18 @@
-# Simple LLM Proxy Backend
+# Simple LLM Summarization Backend
 
-A lightweight Python backend for your iOS app that handles auth, subscription checks, and proxies requests to OpenAI.
+A lightweight Python backend for your iOS app that handles auth, subscription checks, and AI-powered text summarization.
 
 ## Features
 
 - ✅ Supabase authentication (JWT verification)
 - ✅ Subscription & usage limit checks
-- ✅ OpenAI API proxy
-- ✅ Usage logging
+- ✅ AI-powered text summarization via OpenAI
+- ✅ User-customizable output formats (bullet points, numbered lists, etc.)
+- ✅ User-customizable personas/tones (professional, casual, etc.)
+- ✅ Backend-maintained prompt engineering for quality & cost optimization
+- ✅ Usage logging & token tracking
 - ✅ Docker deployment
-- ✅ Simple and easy to understand (~150 lines of code)
+- ✅ Simple and maintainable (~200 lines of code)
 
 ## Quick Start
 
@@ -64,19 +67,21 @@ Get current user info and usage limits
 - Requires: `Authorization: Bearer <supabase_jwt>`
 
 ### `POST /api/chat`
-Send messages to OpenAI
+Summarize text with optional user preferences
 - Requires: `Authorization: Bearer <supabase_jwt>`
 - Body:
 ```json
 {
-  "messages": [
-    {"role": "user", "content": "Hello!"}
-  ],
+  "text": "Text to summarize...",
+  "format": "Bullet points with emoji (optional)",
+  "persona": "Professional tone (optional)",
   "model": "gpt-3.5-turbo",
-  "temperature": 0.7,
-  "max_tokens": 1000
+  "temperature": 0.5,
+  "max_tokens": 500
 }
 ```
+
+See `API_EXAMPLES.md` for detailed usage examples
 
 ## iOS App Integration
 
@@ -85,21 +90,22 @@ Send messages to OpenAI
 let session = try await supabase.auth.session
 let token = session.accessToken
 
-// 2. Call your backend
+// 2. Call your backend with user's selected profile
 var request = URLRequest(url: URL(string: "http://your-backend:8080/api/chat")!)
 request.httpMethod = "POST"
 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-let body = [
-    "messages": [
-        ["role": "user", "content": "Hello!"]
-    ],
+let body: [String: Any] = [
+    "text": "Your text to summarize...",
+    "format": userProfile.format,  // e.g., "Bullet points with emoji"
+    "persona": userProfile.persona, // e.g., "Professional tone"
     "model": "gpt-3.5-turbo"
 ]
 request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
 let (data, response) = try await URLSession.shared.data(for: request)
+// Parse response.content to display the summary
 ```
 
 ## Customize for Your Database
@@ -129,16 +135,22 @@ backend/
 ## How It Works
 
 ```
-iOS App
+iOS App (sends text + optional format/persona from user profile)
   ↓ (with Supabase JWT)
 Backend API
   ↓
 1. Verify JWT token
 2. Check user's plan & usage limits (query your Supabase tables)
-3. If allowed → Call OpenAI
-4. Log usage
-5. Return response
+3. Build prompt: Core backend instructions + user's format/persona
+4. If allowed → Call OpenAI with optimized prompt
+5. Log usage
+6. Return summarized content
 ```
+
+**Key Design:**
+- Backend maintains core prompt engineering for quality/cost optimization
+- Users can customize output format and tone via client-side profiles
+- Simple separation: backend handles quality, users handle preferences
 
 ## Deployment
 
@@ -178,4 +190,5 @@ uvicorn main:app --host 0.0.0.0 --port 8080
 ## License
 
 MIT
+
 
