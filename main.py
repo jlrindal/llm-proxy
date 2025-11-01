@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from config import settings
+from model_config import OPENAI_MODEL, TEMPERATURE, BASE_MAX_TOKENS
 from auth import get_current_user
 from database import check_user_limits, log_request
 
@@ -120,9 +121,8 @@ class ChatRequest(BaseModel):
     text: str  # The text to summarize
     format: str | None = None  # User's custom format (e.g., "bullet points", "numbered list")
     persona: str | None = None  # User's custom persona (e.g., "professional", "casual")
-    model: str = "gpt-3.5-turbo"
-    temperature: float = 0.5  # Lower for more consistent summaries
-    max_tokens: int = 500
+    # Note: model, temperature, and max_tokens are controlled by backend
+    # Users cannot override these for cost/quality control
 
 
 class ChatResponse(BaseModel):
@@ -163,13 +163,13 @@ def chat(
     - JSON body with text, optional format and persona
     
     The backend automatically determines how many snippets to generate based on text length.
+    Model, temperature, and max_tokens are controlled by the backend.
     
     Example request:
     {
         "text": "Long article or content...",
         "format": "Short, engaging format under 280 characters",
-        "persona": "Conversational and thought-provoking",
-        "model": "gpt-3.5-turbo"
+        "persona": "Conversational and thought-provoking"
     }
     
     Example response:
@@ -203,13 +203,14 @@ def chat(
     
     # 3. Call OpenAI with increased max_tokens for multiple snippets
     try:
+        # Backend-controlled parameters from model_config.py
         # Adjust max_tokens based on snippet count (allow ~100 tokens per snippet)
-        adjusted_max_tokens = min(request.max_tokens * expected_count, 2000)
+        adjusted_max_tokens = min(BASE_MAX_TOKENS * expected_count, 2000)
         
         response = openai_client.chat.completions.create(
-            model=request.model,
+            model=OPENAI_MODEL,  # Backend-controlled model from model_config.py
             messages=messages,
-            temperature=request.temperature,
+            temperature=TEMPERATURE,
             max_tokens=adjusted_max_tokens
         )
         
@@ -234,7 +235,7 @@ def chat(
         }
         
         # 5. Log usage
-        log_request(user_id, request.model, usage["total_tokens"])
+        log_request(user_id, OPENAI_MODEL, usage["total_tokens"])
         
         return ChatResponse(
             snippets=snippets,
